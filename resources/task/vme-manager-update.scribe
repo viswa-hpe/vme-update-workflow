@@ -7,11 +7,11 @@ resource "task" "vme-manager-update" {
   labels = [ "HPE VME Manager" ]
   lastUpdated = "2025-06-26T11:29:10.000Z"
   options = [
-    { optionType = { code = "shell.sudo" }, value = "on" },
     {
       content = { uuid = "1cb8e893-f9ae-45cc-90b6-b53bb2fbc591" }
       optionType = { code = "script" }
-    }
+    },
+    { optionType = { code = "shell.sudo" }, value = "on" }
   ]
   taskType = { code = "script" }
 }
