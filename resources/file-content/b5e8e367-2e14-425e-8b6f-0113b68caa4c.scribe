@@ -1,0 +1,30 @@
+resource "file-content" "b5e8e367-2e14-425e-8b6f-0113b68caa4c" {
+  uuid = "b5e8e367-2e14-425e-8b6f-0113b68caa4c"
+  content = <<EOFSCRIBE
+#!/bin/sh
+
+echo "$(date '+%Y-%m-%d %H:%M:%S') Fetching the information needed for the cluster upgrade"
+cat > /tmp/cluster-info.json <<EOF
+{
+  "node": [
+    {
+      "node1": {
+        "id": "1",
+        "ip_address": "172.30.1.179",
+        "to_version": "1.0.0.31.20250526.8905",
+        "ilo_username": "prostack_admin",
+        "ilo_password": "Prostack123!",
+        "ilo_ip": "10.227.255.220"
+      }
+    }
+  ]
+}
+ 
+EOF
+
+echo "$(date '+%Y-%m-%d %H:%M:%S') /tmp/cluster-info.json file created with necessary information for the cluster update"
+
+EOFSCRIBE
+  dateCreated = "2025-06-24T11:34:25.000Z"
+  lastUpdated = "2025-06-25T14:38:40.000Z"
+}

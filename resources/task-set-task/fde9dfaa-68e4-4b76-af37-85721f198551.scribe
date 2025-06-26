@@ -1,0 +1,6 @@
+resource "task-set-task" "fde9dfaa-68e4-4b76-af37-85721f198551" {
+  uuid = "fde9dfaa-68e4-4b76-af37-85721f198551"
+  task = { name = "Post VME Manager Update" }
+  taskOrder = 4
+  taskPhase = "operation"
+}

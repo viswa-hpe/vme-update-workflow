@@ -1,0 +1,18 @@
+resource "task" "Update-InitializeWorkflowInfo" {
+  code = "Update-InitializeWorkflowInfo"
+  name = "Update-InitializeWorkflowInfo"
+  uuid = "f9c3427f-276d-42e9-9ff7-15a33b49c66f"
+  allowCustomConfig = true
+  dateCreated = "2025-06-24T11:34:25.000Z"
+  executeTarget = "local"
+  labels = [ "Update-InitializeWorkflowInfo" ]
+  lastUpdated = "2025-06-24T11:34:25.000Z"
+  options = [
+    {
+      content = { uuid = "b5e8e367-2e14-425e-8b6f-0113b68caa4c" }
+      optionType = { code = "script" }
+    },
+    { optionType = { code = "shell.sudo" }, value = "on" }
+  ]
+  taskType = { code = "script" }
+}

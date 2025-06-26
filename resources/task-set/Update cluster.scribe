@@ -1,0 +1,17 @@
+resource "task-set" "Update cluster" {
+  name = "Update cluster"
+  uuid = "358f498f-2f99-49d4-ae63-6bf5c5e449f5"
+  dateCreated = "2025-06-25T08:10:26.000Z"
+  description = "Updates cluster - includes Manager, Nodes, Array and SPP upgrades"
+  labels = [ "UpdateCluster" ]
+  lastUpdated = "2025-06-25T10:03:12.000Z"
+  taskSetTasks = [
+    { uuid = "4592c48e-9a5d-4ff6-8a0c-b9f429b08e5d" },
+    { uuid = "50449827-ed50-4a4c-a049-b9ec07400a8c" },
+    { uuid = "8e9fc9a0-fb55-44e0-8ae9-619726d31faa" },
+    { uuid = "b8cb27f0-02c4-4fde-b14f-b4cbfbeec51c" },
+    { uuid = "dcc1ccd6-9b11-48d8-9527-ca059f761706" },
+    { uuid = "fde9dfaa-68e4-4b76-af37-85721f198551" }
+  ]
+  taskSetType = "operation"
+}

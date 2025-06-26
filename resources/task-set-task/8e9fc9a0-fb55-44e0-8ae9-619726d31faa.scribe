@@ -1,0 +1,6 @@
+resource "task-set-task" "8e9fc9a0-fb55-44e0-8ae9-619726d31faa" {
+  uuid = "8e9fc9a0-fb55-44e0-8ae9-619726d31faa"
+  task = { code = "Update VME Manager" }
+  taskOrder = 3
+  taskPhase = "operation"
+}
