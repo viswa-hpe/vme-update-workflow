@@ -1,12 +1,12 @@
 resource "task" "update-workflow-init-config" {
   code = "update-workflow-init-config"
-  name = "update-workflow-init-config"
+  name = "Update Workflow Init Config"
   uuid = "f9c3427f-276d-42e9-9ff7-15a33b49c66f"
   allowCustomConfig = true
   dateCreated = "2025-06-24T11:34:25.000Z"
   executeTarget = "local"
-  labels = [ "Update-InitializeWorkflowInfo" ]
-  lastUpdated = "2025-06-26T11:29:02.000Z"
+  labels = [ "update-workflow-init-config" ]
+  lastUpdated = "2025-06-26T11:58:53.000Z"
   options = [
     { optionType = { code = "shell.sudo" }, value = "on" },
     {

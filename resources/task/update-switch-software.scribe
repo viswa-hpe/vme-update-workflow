@@ -1,11 +1,11 @@
 resource "task" "update-switch-software" {
   code = "update-switch-software"
-  name = "update-switch-software"
+  name = "Update Switch Software"
   uuid = "8d3c2cd2-f1d4-48a8-b104-1e078c67d2a4"
   dateCreated = "2025-06-25T10:02:46.000Z"
   executeTarget = "local"
   labels = [ "Update Switch" ]
-  lastUpdated = "2025-06-26T11:28:54.000Z"
+  lastUpdated = "2025-06-26T11:56:23.000Z"
   options = [
     { optionType = { code = "shell.sudo" }, value = "on" },
     {
