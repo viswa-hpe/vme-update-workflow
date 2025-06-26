@@ -1,11 +1,11 @@
 resource "task" "Update VME Manager" {
   code = "Update VME Manager"
-  name = "VME Manager Update"
+  name = "vme-manager-update"
   uuid = "d86991a4-0511-40ec-ba85-85d932b10390"
   dateCreated = "2025-06-24T11:20:57.000Z"
   executeTarget = "local"
   labels = [ "HPE VME Manager" ]
-  lastUpdated = "2025-06-25T10:05:03.000Z"
+  lastUpdated = "2025-06-26T11:25:08.000Z"
   options = [
     { optionType = { code = "shell.sudo" }, value = "on" },
     {
