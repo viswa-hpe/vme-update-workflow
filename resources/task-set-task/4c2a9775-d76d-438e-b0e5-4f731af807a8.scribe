@@ -1,0 +1,6 @@
+resource "task-set-task" "4c2a9775-d76d-438e-b0e5-4f731af807a8" {
+  uuid = "4c2a9775-d76d-438e-b0e5-4f731af807a8"
+  task = { code = "update-all-hosts" }
+  taskOrder = 5
+  taskPhase = "operation"
+}

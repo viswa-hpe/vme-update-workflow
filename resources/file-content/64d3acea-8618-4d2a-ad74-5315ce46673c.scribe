@@ -1,0 +1,56 @@
+resource "file-content" "64d3acea-8618-4d2a-ad74-5315ce46673c" {
+  uuid = "64d3acea-8618-4d2a-ad74-5315ce46673c"
+  content = <<EOFSCRIBE
+#!/bin/bash
+#
+# © Copyright 2025 Hewlett Packard Enterprise Development LP
+#
+
+# Ensure script runs as root
+[ "$EUID" -ne 0 ] && exec sudo "$0" "$@"
+
+# TODO: Need a dedicated location for the log file and package
+RECONFIGURE_DONE_FILE="/tmp/reconfigure.done"
+UPDATE_OUTPUT_FILE="/tmp/output.txt"
+
+log_info() { echo "$(date +'%Y-%m-%d %H:%M:%S.%4NZ') [INFO] $1"; }
+log_warn() { echo "$(date +'%Y-%m-%d %H:%M:%S.%4NZ') [WARN] $1"; }
+log_error() { echo "$(date +'%Y-%m-%d %H:%M:%S.%4NZ') [ERROR] $1"; >&2 echo "$1"; exit "${2:-1}"; }
+
+wait_for_reconfigure() {
+    for _ in {1..20}; do
+        [ -f "$RECONFIGURE_DONE_FILE" ] && { cat "$UPDATE_OUTPUT_FILE"; return; }
+        log_warn "Morpheus is currently installing the required packages. During this process, the Morpheus UI will be temporarily stopped and will restart automatically. This may take approximately 5 to 10 minutes. Once the UI is back up, please stop the current task and restart it to continue with the workflow."
+        #TODO: Below command need to be revisited
+        tail -f -n +1 "$UPDATE_OUTPUT_FILE"
+    done
+    log_error "Reconfigure is not done, exiting..." 3
+}
+
+check_services() {
+    for i in {1..20}; do
+        log_info "Checking the status of services after restarting the task."
+        output=$(sudo morpheus-ctl status)
+        if echo "$output" | grep -qvE "^run"; then
+            [ "$i" -eq 20 ] && log_error "Some services are still not running: $output"
+        else
+            return
+        fi
+        #If services are not up wait for 30 sec
+        sleep 30
+        log_info "Waiting for services to start... pausing for 30 seconds."
+    done
+}
+
+main() {
+    wait_for_reconfigure
+    check_services
+    rm -f "$RECONFIGURE_DONE_FILE"
+    #log_info "$RECONFIGURE_DONE_FILE file has been successfully removed."
+}
+
+main
+EOFSCRIBE
+  dateCreated = "2025-06-24T11:20:57.000Z"
+  lastUpdated = "2025-06-26T05:35:19.000Z"
+}

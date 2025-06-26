@@ -1,0 +1,18 @@
+resource "task" "update-all-hosts" {
+  code = "update-all-hosts"
+  name = "Update Cluster Hosts"
+  uuid = "588fa65e-aa49-4117-bb41-223e6fcb4ee2"
+  allowCustomConfig = true
+  dateCreated = "2025-06-24T11:34:50.000Z"
+  executeTarget = "local"
+  labels = [ "Update Cluster Hosts" ]
+  lastUpdated = "2025-06-26T11:55:34.000Z"
+  options = [
+    { optionType = { code = "shell.sudo" }, value = "on" },
+    {
+      content = { uuid = "91f966f4-f905-46b5-b66d-d737f96852dc" }
+      optionType = { code = "script" }
+    }
+  ]
+  taskType = { code = "script" }
+}
