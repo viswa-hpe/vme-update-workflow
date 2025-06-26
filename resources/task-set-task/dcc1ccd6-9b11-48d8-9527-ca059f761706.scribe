@@ -1,6 +1,0 @@
-resource "task-set-task" "dcc1ccd6-9b11-48d8-9527-ca059f761706" {
-  uuid = "dcc1ccd6-9b11-48d8-9527-ca059f761706"
-  task = { name = "Update Switch" }
-  taskOrder = 2
-  taskPhase = "operation"
-}

@@ -1,6 +1,0 @@
-resource "task-set-task" "fa175183-863f-43b7-aaa2-8d369aef7c80" {
-  uuid = "fa175183-863f-43b7-aaa2-8d369aef7c80"
-  task = { code = "update-switch-software" }
-  taskOrder = 2
-  taskPhase = "operation"
-}

@@ -1,5 +1,0 @@
-resource "task-set-task" "763c304a-6a1e-4d25-8ac8-3004bc1ef00e" {
-  uuid = "763c304a-6a1e-4d25-8ac8-3004bc1ef00e"
-  task = { code = "update-workflow-init-config" }
-  taskPhase = "operation"
-}

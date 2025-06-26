@@ -1,6 +1,0 @@
-resource "task-set-task" "4592c48e-9a5d-4ff6-8a0c-b9f429b08e5d" {
-  uuid = "4592c48e-9a5d-4ff6-8a0c-b9f429b08e5d"
-  task = { code = "Update Array OS" }
-  taskOrder = 1
-  taskPhase = "operation"
-}

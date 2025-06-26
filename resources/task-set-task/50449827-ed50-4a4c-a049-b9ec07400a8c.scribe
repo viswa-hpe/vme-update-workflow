@@ -1,6 +1,0 @@
-resource "task-set-task" "50449827-ed50-4a4c-a049-b9ec07400a8c" {
-  uuid = "50449827-ed50-4a4c-a049-b9ec07400a8c"
-  task = { code = "Update-ClusterHosts" }
-  taskOrder = 5
-  taskPhase = "operation"
-}
