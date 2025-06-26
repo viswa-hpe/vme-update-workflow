@@ -6,11 +6,11 @@ resource "task" "post-upgrade-hook-vme-manager" {
   labels = [ "HPE VME Manager" ]
   lastUpdated = "2025-06-26T11:21:12.000Z"
   options = [
+    { optionType = { code = "shell.sudo" }, value = "on" },
     {
       content = { uuid = "64d3acea-8618-4d2a-ad74-5315ce46673c" }
       optionType = { code = "script" }
-    },
-    { optionType = { code = "shell.sudo" }, value = "on" }
+    }
   ]
   taskType = { code = "script" }
 }
