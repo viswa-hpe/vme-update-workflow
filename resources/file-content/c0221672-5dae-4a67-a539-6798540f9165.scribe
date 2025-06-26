@@ -1,9 +1,0 @@
-resource "file-content" "c0221672-5dae-4a67-a539-6798540f9165" {
-  uuid = "c0221672-5dae-4a67-a539-6798540f9165"
-  content = <<EOFSCRIBE
-#!/bin/bash
-echo "Updating Switch"
-EOFSCRIBE
-  dateCreated = "2025-06-25T10:02:46.000Z"
-  lastUpdated = "2025-06-25T10:02:46.000Z"
-}
