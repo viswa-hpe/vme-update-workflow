@@ -15,7 +15,7 @@ resource "file-content" "1cb8e893-f9ae-45cc-90b6-b53bb2fbc592" {
 # === Configuration ===
 ARRAY_IP="172.30.1.174"
 POLL_INTERVAL=5
-TIMEOUT=3600
+TIMEOUT=5400
 EXIT_CODE_AUTH_ERROR=1
 EXIT_CODE_TASK_ERROR=3
 
@@ -40,15 +40,26 @@ log() {
 
 # Get authentication token from the array
 get_session_token() {
+    local pollToken="$1"
     log "INFO" "Authenticating with array at $ARRAY_IP..."
 
-    session_token=$(curl -s -k -X POST "https://$ARRAY_IP/api/v3/credentials" \
-        -H "Content-Type: application/json" \
-        -d '{"user":"3paradm","password":"3pardata"}' --noproxy '*' | \
-        jq -r '.key // empty')
+    for _ in {1..20}; do
+        session_token=$(curl -s -k -X POST "https://$ARRAY_IP/api/v3/credentials" \
+            -H "Content-Type: application/json" \
+            -d '{"user":"3paradm","password":"3pardata"}' --noproxy '*' | jq -r '.key // empty')
+
+        if [ -n "$session_token" ]; then
+            log "INFO" "Session token obtained successfully"
+            break
+        fi
+
+        if [ -n "$pollToken" ]; then
+            log "INFO" "Array temporarily unavailable. Retrying in 30 seconds..."
+            sleep 30
+        fi
+    done
 
     [ -z "$session_token" ] && log "ERROR" "Failed to fetch session token" "$EXIT_CODE_AUTH_ERROR"
-    log "INFO" "Authentication successful"
 }
 
 # Poll a task until completion or timeout
@@ -56,7 +67,6 @@ poll_task() {
     local task_uri="$1"
     local task_name="$2"
     local elapsed=0
-    local progress=0
 
     log "INFO" "Monitoring $task_name task progress..."
 
@@ -66,18 +76,28 @@ poll_task() {
             -H "Content-Type: application/json" \
             -H "Accept: application/json" --noproxy '*')
 
+        #log "DEBUG" "Task response: $response"
+
+        if [ -z "$response" ]; then
+            log "INFO" "No response received while polling the task: $task_uri. The array may be temporarily unreachable. Waiting for 5 minutes before retrying."
+            sleep 300
+            elapsed=$((elapsed + 300))
+            get_session_token "POLL_TOKEN"
+            continue
+        fi
+
         status=$(echo "$response" | jq -r '.status // empty')
 
         case "$status" in
-            "STATE_FINISHED") 
+            "STATE_FINISHED")
                 log "INFO" "$task_name task completed successfully"
-                return 0 
+                return 0
                 ;;
-            "STATE_RUNNING") 
+            "STATE_RUNNING")
                 # Only log running status occasionally to reduce noise
                 [ $((elapsed % 30)) -eq 0 ] && log "INFO" "$task_name task is running..."
                 ;;
-            *) 
+            *)
                 log "ERROR" "$task_name task failed with status: $status" "$EXIT_CODE_TASK_ERROR"
                 ;;
         esac
@@ -99,8 +119,8 @@ fetch_recommendations() {
         -H "Authorization: Bearer $session_token" --noproxy '*' | \
         jq -r '.members | to_entries | .[0].value.uri // empty')
 
-    [ -z "$recommendation_uri" ] && log "INFO" "No recommendations found. Array software is up to date." 0
-    log "INFO" "Found software update recommendation."
+    [ -z "$recommendation_uri" ] && { log "WARN" "No recommendations found. Array software is up to date."; exit 0; }
+    log "INFO" "Found software update recommendation. URI: $recommendation_uri"
 }
 
 # Perform an action on the array
@@ -138,17 +158,16 @@ main() {
     poll_task "$task_uri" "READINESS_CHECK"
 
     # Uncomment below lines to perform the actual update
-    # log "INFO" "Proceeding with software update..."
-    # perform_action "$recommendation_uri" '{"action":"UPDATE","parameters":{"preupgradewarn":"true"}}' "UPDATE"
-    # poll_task "$task_uri" "UPDATE"
+    log "INFO" "Proceeding with software update..."
+    perform_action "$recommendation_uri" '{"action":"UPDATE","parameters":{"preupgradewarn":"true"}}' "UPDATE"
+    poll_task "$task_uri" "UPDATE"
 
     log "INFO" "Array OS update process completed successfully"
 }
 
 # Execute main function
 main
-
 EOFSCRIBE
   dateCreated = "2025-06-24T11:20:57.000Z"
-  lastUpdated = "2025-06-25T13:55:45.000Z"
+  lastUpdated = "2025-06-27T19:06:52.000Z"
 }

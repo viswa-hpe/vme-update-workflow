@@ -8,11 +8,11 @@ resource "task" "update-workflow-init-config" {
   labels = [ "update-workflow-init-config" ]
   lastUpdated = "2025-06-26T11:58:53.000Z"
   options = [
+    { optionType = { code = "shell.sudo" }, value = "on" },
     {
       content = { uuid = "b5e8e367-2e14-425e-8b6f-0113b68caa4c" }
       optionType = { code = "script" }
-    },
-    { optionType = { code = "shell.sudo" }, value = "on" }
+    }
   ]
   taskType = { code = "script" }
 }

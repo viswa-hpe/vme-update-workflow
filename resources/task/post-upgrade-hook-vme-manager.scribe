@@ -1,11 +1,11 @@
 resource "task" "post-upgrade-hook-vme-manager" {
   code = "post-upgrade-hook-vme-manager"
-  name = "Post upgrade hook - VME Manager"
+  name = "Post Upgrade Hook - VME Manager"
   uuid = "a3da07ea-5960-4b99-8c24-0687d72e650a"
   dateCreated = "2025-06-24T11:20:57.000Z"
   executeTarget = "local"
-  labels = [ "post-upgrade-hook-vme-manager" ]
-  lastUpdated = "2025-06-26T11:59:47.000Z"
+  labels = [ "Post Upgrade Hook - VME Manager" ]
+  lastUpdated = "2025-06-26T13:56:16.000Z"
   options = [
     {
       content = { uuid = "64d3acea-8618-4d2a-ad74-5315ce46673c" }

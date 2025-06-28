@@ -50,10 +50,12 @@ wait_for_job_completion() {
   done
 }
  
-host_os_update_task_id=$(fetch_task_id ${applianceHost} Update-HVM-host $token)
+host_os_update_task_id=$(fetch_task_id ${applianceHost} Update-VME-Host $token)
 echo "$(date '+%Y-%m-%d %H:%M:%S') TaskID for node update: $host_os_update_task_id"
-host_spp_update_task_id=$(fetch_task_id ${applianceHost} Update-NodeSPP-DryRun $token)
-echo "$(date '+%Y-%m-%d %H:%M:%S') TaskID for SPP firmware upgrade (DRY-RUN) $host_spp_update_task_id"
+host_spp_update_dry_run_task_id=$(fetch_task_id ${applianceHost} Update-Host-SPP-Dry-Run $token)
+echo "$(date '+%Y-%m-%d %H:%M:%S') TaskID for SPP firmware upgrade (DRY-RUN) $host_spp_update_dry_run_task_id"
+host_spp_update_task_id=$(fetch_task_id ${applianceHost} Update-Host-SPP $token)
+echo "$(date '+%Y-%m-%d %H:%M:%S') TaskID for SPP firmware upgrade $host_spp_update_task_id"
  
 ###################################################################################
 #  update node OS
@@ -86,7 +88,7 @@ echo "$(date '+%Y-%m-%d %H:%M:%S') Update HPE VME Node $val status is: $job_stat
 ###################################################################################
 echo "$(date '+%Y-%m-%d %H:%M:%S') Updating(dry-run) SPP firmware for the node: $val"
 job_id=$(curl --request POST \
-     --url https://${applianceHost}/api/tasks/${host_spp_update_task_id}/execute \
+     --url https://${applianceHost}/api/tasks/${host_spp_update_dry_run_task_id}/execute \
      --header 'accept: application/json' \
      --header "authorization: Bearer ${token}" \
      --header 'content-type: application/json' \
@@ -102,10 +104,37 @@ job_id=$(curl --request POST \
 job_status=$(wait_for_job_completion $val ${job_id} 40 120)
  
 echo "$(date '+%Y-%m-%d %H:%M:%S') Update(dry-run) SPP firmware for the node $val status is: $job_status"
+
+###################################################################################
+#  update node SSP
+###################################################################################
+SPP_UPGRADE_FLAG_FILE="/tmp/spp_upgrade_${val}"
+if [ -f $SPP_UPGRADE_FLAG_FILE ]; then
+	echo "$(date '+%Y-%m-%d %H:%M:%S') Updating SPP firmware for the node: $val"
+	job_id=$(curl --request POST \
+		 --url https://${applianceHost}/api/tasks/${host_spp_update_task_id}/execute \
+		 --header 'accept: application/json' \
+		 --header "authorization: Bearer ${token}" \
+		 --header 'content-type: application/json' \
+		 --data '
+	{  "job": {
+		"customOptions": {
+		  "hostIP": '$val'
+		}
+	  }
+	}
+	' -k -vv  2>/dev/null | jq -r '.job.id')
+	 
+	job_status=$(wait_for_job_completion $val ${job_id} 40 120)
+	 
+	echo "$(date '+%Y-%m-%d %H:%M:%S') Update SPP firmware for the node $val status is: $job_status"
+else
+  "echo $(date '+%Y-%m-%d %H:%M:%S') Skipping the firmware upgrade for the node $val as there are no components for upgrade"
+fi
  
 done
 exit 0
 EOFSCRIBE
   dateCreated = "2025-06-24T11:34:50.000Z"
-  lastUpdated = "2025-06-25T14:39:28.000Z"
+  lastUpdated = "2025-06-26T15:27:20.000Z"
 }

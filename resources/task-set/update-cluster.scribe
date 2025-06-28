@@ -2,16 +2,16 @@ resource "task-set" "update-cluster" {
   name = "update-cluster"
   uuid = "358f498f-2f99-49d4-ae63-6bf5c5e449f5"
   dateCreated = "2025-06-25T08:10:26.000Z"
-  description = "Updates cluster - includes Manager, Nodes, Array and SPP upgrades"
-  labels = [ "UpdateCluster" ]
-  lastUpdated = "2025-06-26T11:25:27.000Z"
+  description = "Updates Cluster - includes Manager, Nodes, Array and SPP upgrades"
+  labels = [ "Update Cluster" ]
+  lastUpdated = "2025-06-26T13:58:24.000Z"
   taskSetTasks = [
-    { uuid = "2eaff215-a1a1-470e-8106-31c01b2b53d1" },
-    { uuid = "4c2a9775-d76d-438e-b0e5-4f731af807a8" },
-    { uuid = "763c304a-6a1e-4d25-8ac8-3004bc1ef00e" },
-    { uuid = "84cf6cc4-6b6c-43da-b406-43219310dd96" },
-    { uuid = "8fc2b417-af16-40ce-a600-d8f5616f2625" },
-    { uuid = "fa175183-863f-43b7-aaa2-8d369aef7c80" }
+    { uuid = "43ca6cfd-1ec6-4fc0-a38f-d7bfd8688d1f" },
+    { uuid = "478b160d-12ca-4299-8537-bd1d213fcc3f" },
+    { uuid = "48aa6064-ef61-40b3-af6f-7bbf38af6d2b" },
+    { uuid = "5494bfe9-d84a-4581-bb10-2b26771c136b" },
+    { uuid = "977eb4c2-41df-4b29-845c-b566cf583c6e" },
+    { uuid = "a7849ee1-3f90-44b7-be30-7e3c4aaf92ce" }
   ]
   taskSetType = "operation"
 }

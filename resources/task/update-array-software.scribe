@@ -7,11 +7,11 @@ resource "task" "update-array-software" {
   labels = [ "Update Array Software" ]
   lastUpdated = "2025-06-26T11:55:17.000Z"
   options = [
+    { optionType = { code = "shell.sudo" }, value = "on" },
     {
       content = { uuid = "1cb8e893-f9ae-45cc-90b6-b53bb2fbc592" }
       optionType = { code = "script" }
-    },
-    { optionType = { code = "shell.sudo" }, value = "on" }
+    }
   ]
   taskType = { code = "script" }
 }

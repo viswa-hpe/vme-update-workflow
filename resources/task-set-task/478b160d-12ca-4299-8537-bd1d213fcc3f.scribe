@@ -1,0 +1,6 @@
+resource "task-set-task" "478b160d-12ca-4299-8537-bd1d213fcc3f" {
+  uuid = "478b160d-12ca-4299-8537-bd1d213fcc3f"
+  task = { code = "update-array-software" }
+  taskOrder = 1
+  taskPhase = "operation"
+}

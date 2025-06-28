@@ -1,0 +1,6 @@
+resource "task-set-task" "5494bfe9-d84a-4581-bb10-2b26771c136b" {
+  uuid = "5494bfe9-d84a-4581-bb10-2b26771c136b"
+  task = { code = "post-upgrade-hook-vme-manager" }
+  taskOrder = 4
+  taskPhase = "operation"
+}
