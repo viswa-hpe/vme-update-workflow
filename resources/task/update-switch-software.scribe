@@ -7,11 +7,11 @@ resource "task" "update-switch-software" {
   labels = [ "Update Switch" ]
   lastUpdated = "2025-06-26T11:56:23.000Z"
   options = [
+    { optionType = { code = "shell.sudo" }, value = "on" },
     {
       content = { uuid = "c0221672-5dae-4a67-a539-6798540f9165" }
       optionType = { code = "script" }
-    },
-    { optionType = { code = "shell.sudo" }, value = "on" }
+    }
   ]
   taskType = { code = "script" }
 }
