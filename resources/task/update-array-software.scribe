@@ -1,11 +1,11 @@
 resource "task" "update-array-software" {
   code = "update-array-software"
-  name = "Update Array Software"
+  name = "Update Array OS"
   uuid = "d86991a4-0511-40ec-ba85-85d932b10391"
   dateCreated = "2025-06-24T11:20:57.000Z"
   executeTarget = "local"
   labels = [ "Update Array Software" ]
-  lastUpdated = "2025-06-26T11:55:17.000Z"
+  lastUpdated = "2025-07-04T07:09:03.000Z"
   options = [
     { optionType = { code = "shell.sudo" }, value = "on" },
     {

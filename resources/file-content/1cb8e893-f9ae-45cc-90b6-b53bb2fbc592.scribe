@@ -2,172 +2,130 @@ resource "file-content" "1cb8e893-f9ae-45cc-90b6-b53bb2fbc592" {
   uuid = "1cb8e893-f9ae-45cc-90b6-b53bb2fbc592"
   content = <<EOFSCRIBE
 #!/bin/bash
-#
-# © Copyright 2025 Hewlett Packard Enterprise Development LP
-#
-# Array OS Update Script
-# This script checks for and applies software updates to the storage array.
-# It performs a readiness check before updating and monitors task progress.
-
-# Ensure script runs as root
-[ "$EUID" -ne 0 ] && exec sudo "$0" "$@"
 
 # === Configuration ===
-ARRAY_IP="172.30.1.174"
+array_ip="172.30.1.174"
 POLL_INTERVAL=5
-TIMEOUT=5400
-EXIT_CODE_AUTH_ERROR=1
-EXIT_CODE_TASK_ERROR=3
+TIMEOUT=3600
 
-# === Global Variables ===
 session_token=""
 recommendation_uri=""
 task_uri=""
 
 # === Functions ===
-# Unified logging function with timestamp and log level
-log() {
-    local level="$1"
-    local message="$2"
-    local timestamp=$(date +'%Y-%m-%d %H:%M:%S')
-    echo "[$timestamp] [$level] $message"
-
-    # Exit on error with provided code or default
-    if [ "$level" = "ERROR" ]; then
-        exit "${3:-$EXIT_CODE_TASK_ERROR}"
-    fi
-}
-
-# Get authentication token from the array
 get_session_token() {
-    local pollToken="$1"
-    log "INFO" "Authenticating with array at $ARRAY_IP..."
+  response=$(curl -s -k -X POST "https://$array_ip/api/v3/credentials" \
+  -H "Content-Type:application/json" \
+  -d '{"user":"3paradm","password":"3pardata"}')
 
-    for _ in {1..20}; do
-        session_token=$(curl -s -k -X POST "https://$ARRAY_IP/api/v3/credentials" \
-            -H "Content-Type: application/json" \
-            -d '{"user":"3paradm","password":"3pardata"}' --noproxy '*' | jq -r '.key // empty')
-
-        if [ -n "$session_token" ]; then
-            log "INFO" "Session token obtained successfully"
-            break
-        fi
-
-        if [ -n "$pollToken" ]; then
-            log "INFO" "Array temporarily unavailable. Retrying in 30 seconds..."
-            sleep 30
-        fi
-    done
-
-    [ -z "$session_token" ] && log "ERROR" "Failed to fetch session token" "$EXIT_CODE_AUTH_ERROR"
+  session_token=$(echo "$response" | jq -r '.key')
+  if [ -z "$session_token" ]; then
+    echo "[ERROR] Failed to fetch session token."
+    exit 1
+  fi
+  echo "[INFO] Session token obtained."
 }
 
-# Poll a task until completion or timeout
 poll_task() {
-    local task_uri="$1"
-    local task_name="$2"
-    local elapsed=0
+  elapsed=0
+  while [ "$elapsed" -lt "$TIMEOUT" ]; do
+    response=$(curl -s -k -X GET "https://${array_ip}$1" \
+    -H "Authorization: Bearer $session_token" \
+    -H "accept: application/json" \
+    -H "Content-Type:application/json")
 
-    log "INFO" "Monitoring $task_name task progress..."
+    echo "[DEBUG] Task response: $response"
+    if ! echo "$response" | jq empty >/dev/null 2>&1; then
+      echo "[ERROR] Invalid JSON received."
+      exit 3
+    fi
 
-    while [ "$elapsed" -lt "$TIMEOUT" ]; do
-        response=$(curl -s -k -X GET "https://${ARRAY_IP}$task_uri" \
-            -H "Authorization: Bearer $session_token" \
-            -H "Content-Type: application/json" \
-            -H "Accept: application/json" --noproxy '*')
+    status=$(echo "$response" | jq -r '.status')
+    if [ -z "$status" ]; then
+        echo "[WARN] Task status not found"
+        exit 3
+    fi
 
-        #log "DEBUG" "Task response: $response"
+    case "$status" in
+      "STATE_FINISHED") echo "[DEBUG] Task succeeded."; break ;;
+      "STATE_RUNNING") echo "[DEBUG] $2 task is running..." ;;
+      *) echo "[ERROR] $2 task status: $status"; exit 3 ;;
+    esac
 
-        if [ -z "$response" ]; then
-            log "INFO" "No response received while polling the task: $task_uri. The array may be temporarily unreachable. Waiting for 5 minutes before retrying."
-            sleep 300
-            elapsed=$((elapsed + 300))
-            get_session_token "POLL_TOKEN"
-            continue
-        fi
-
-        status=$(echo "$response" | jq -r '.status // empty')
-
-        case "$status" in
-            "STATE_FINISHED")
-                log "INFO" "$task_name task completed successfully"
-                return 0
-                ;;
-            "STATE_RUNNING")
-                # Only log running status occasionally to reduce noise
-                [ $((elapsed % 30)) -eq 0 ] && log "INFO" "$task_name task is running..."
-                ;;
-            *)
-                log "ERROR" "$task_name task failed with status: $status" "$EXIT_CODE_TASK_ERROR"
-                ;;
-        esac
-
-        sleep "$POLL_INTERVAL"
-        elapsed=$((elapsed + POLL_INTERVAL))
-    done
-
-    log "ERROR" "$task_name task timed out after $TIMEOUT seconds" "$EXIT_CODE_TASK_ERROR"
+    sleep "$POLL_INTERVAL"
+    elapsed=$((elapsed + POLL_INTERVAL))
+  done
 }
 
-# Fetch software update recommendations from the array
 fetch_recommendations() {
-    log "INFO" "Checking for software update recommendations..."
+  response=$(curl -s -k -X GET "https://$array_ip/api/v3/softwareupdate/recommendations" \
+    -H "accept: application/json" \
+    -H "Content-Type:application/json" \
+    -H "Authorization: Bearer $session_token")
 
-    recommendation_uri=$(curl -s -k -X GET "https://$ARRAY_IP/api/v3/softwareupdate/recommendations" \
-        -H "Accept: application/json" \
-        -H "Content-Type: application/json" \
-        -H "Authorization: Bearer $session_token" --noproxy '*' | \
-        jq -r '.members | to_entries | .[0].value.uri // empty')
+  echo "[DEBUG] Recommendations response: $response"
 
-    [ -z "$recommendation_uri" ] && { log "WARN" "No recommendations found. Array software is up to date."; exit 0; }
-    log "INFO" "Found software update recommendation. URI: $recommendation_uri"
+  if ! echo "$response" | jq empty >/dev/null 2>&1; then
+   echo "[ERROR] Invalid JSON received for recommendations."
+   exit 3
+  fi
+
+  recommendation_uri=$(echo "$response" | jq -r '.members | to_entries | .[0].value.uri // empty')
+  echo "[DEBUG] Recommendations URI: $recommendation_uri"
+  if [ -z "$recommendation_uri" ]; then
+    echo "[ERROR] No recommendations found for software update."
+    exit 1
+  fi
 }
 
-# Perform an action on the array
 perform_action() {
-    local uri="$1"
-    local payload="$2"
-    local action_name="$3"
+  response=$(curl -s -k -X POST "https://$array_ip$1" \
+    -H "accept: application/json" \
+    -H "Authorization: Bearer $session_token" \
+    -H "content-type: application/json" \
+    -d "$2")
 
-    log "INFO" "Initiating $action_name action..."
+  echo "[DEBUG] Task response: $response for action: $3."
+  if ! echo "$response" | jq empty >/dev/null 2>&1; then
+    echo "[ERROR] Invalid JSON received while performing action $3."
+    exit 3
+  fi
 
-    response=$(curl -s -k -X POST "https://$ARRAY_IP$uri" \
-        -H "Accept: application/json" \
-        -H "Authorization: Bearer $session_token" \
-        -H "Content-Type: application/json" \
-        -d "$payload" --noproxy '*')
+  task_uri=$(echo "$response" | jq -r '.taskUri')
+  if [ -z "$task_uri" ] || [ "$task_uri" == "null" ]; then
+    default_message=$(echo "$response" | jq -r '.message.default // empty')
+    echo "[ERROR] Couldn't fetch task uri for action: $3 due to: $default_message"
+    exit 3
+  fi
 
-    task_uri=$(echo "$response" | jq -r '.taskUri // empty')
-
-    [ -z "$task_uri" ] && log "ERROR" "Unable to start $action_name. Action may already be in progress." "$EXIT_CODE_TASK_ERROR"
-    log "INFO" "$action_name action initiated successfully"
+  echo "[DEBUG] Retrieved task URI: $task_uri for action: $3."
 }
 
-# Main function to orchestrate the update process
-main() {
-    log "INFO" "Starting array OS update process for $ARRAY_IP"
+# === Main ===
+echo "[INFO] Upgrading array os..."
+# 1. Fetch session token
+get_session_token
 
-    # Authentication
-    get_session_token
+# 2. Fetch recommendations
+fetch_recommendations
 
-    # Check for updates
-    fetch_recommendations
+# 3. Perform READINESS_CHECK action for the recommendation
+echo "recommendation_uri: $recommendation_uri"
+perform_action "$recommendation_uri" "{\"action\":\"READINESS_CHECK\"}" "READINESS_CHECK"
 
-    # Perform readiness check
-    perform_action "$recommendation_uri" '{"action":"READINESS_CHECK"}' "READINESS_CHECK"
-    poll_task "$task_uri" "READINESS_CHECK"
+# 4. Poll the readiness task until it finishes
+echo "[DEBUG] READINESS_CHECK action task uri: $task_uri"
+poll_task "$task_uri" "READINESS_CHECK"
 
-    # Uncomment below lines to perform the actual update
-    log "INFO" "Proceeding with software update..."
-    perform_action "$recommendation_uri" '{"action":"UPDATE","parameters":{"preupgradewarn":"true"}}' "UPDATE"
-    poll_task "$task_uri" "UPDATE"
+# 5. Perform UPDATE action for the recommendation
+perform_action "$recommendation_uri" "{\"action\":\"UPDATE\",\"parameters\":{\"preupgradewarn\":\"true\"}}" "UPDATE"
 
-    log "INFO" "Array OS update process completed successfully"
-}
+# 6. Poll the update task until it finishes
+echo "[DEBUG] UPDATE action task uri: $task_uri"
+poll_task "$task_uri" "UPDATE"
 
-# Execute main function
-main
+echo "[INFO] Update process completed successfully on array: $array_ip"
 EOFSCRIBE
   dateCreated = "2025-06-24T11:20:57.000Z"
-  lastUpdated = "2025-06-27T19:06:52.000Z"
+  lastUpdated = "2025-07-04T07:09:03.000Z"
 }

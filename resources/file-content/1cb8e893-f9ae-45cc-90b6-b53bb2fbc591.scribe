@@ -6,11 +6,206 @@ resource "file-content" "1cb8e893-f9ae-45cc-90b6-b53bb2fbc591" {
 # © Copyright 2024-2025 Hewlett Packard Enterprise Development LP
 #
 
-# Ensure script runs as root
-[ "$EUID" -ne 0 ] && exec sudo "$0" "$@"
+if [ "$EUID" -ne 0 ]; then
+  exec sudo "$0" "$@"
+  exit
+fi
 
-sudo systemctl start update-vme-manager.service
+# TODO: Need a dedicated location for the log file and package
+RECONFIGURE_LOG_FILE="/var/log/hpe_vme_manager_update.log"
+UPDATE_STATUS_LOG_FILE="/var/log/hpe_vme_manager_update_status.log"
+BASE_PATH="/scratch/HPE-VME-Manager-software-update-bundle/package"
+DEB_FILES=("$BASE_PATH/hpe-vm-essentials_*.deb" "$BASE_PATH/hpe-vm-essentials-supplemental*.deb" )
+RECONFIGURE_DONE_FILE="/tmp/reconfigure.done"
+#DEB_DIR_DIST="$BASE_PATH/dist"
+
+baseos_version()
+{
+  cat /etc/lsb-release
+}
+
+service_version()
+{
+  dpkg -l hpe-vm-essentials | grep hpe-vm | cut -d ' ' -f 4
+}
+
+morpheus_reconfigure()
+{
+    hpe_vme_manager_update_status_log "Reconfiguring HPE-VME-Manager. This may take 5-10 minutes."
+    #  found failure related to logfile. Adding sleep to allow service to completely go down
+    sleep 60
+	  touch "$RECONFIGURE_DONE_FILE"
+    morpheus-ctl reconfigure &>> "$RECONFIGURE_LOG_FILE"
+}
+
+package_update_status()
+{
+    # Check if the command executed successfully
+    if [ $? -eq 0 ]; then
+        hv_log "HPE-VME-Manager reconfigured successfully"
+        hpe_vme_manager_update_status_log "Reconfiguring HPE-VME-Manager completed successfully."
+    else
+        hpe_vme_manager_update_status_log "Reconfiguring HPE-VME-Manager failed"
+        hv_log_error "Failed to reconfigure HPE-VME-Manager"
+    fi
+
+    hpe_vme_manager_update_status_log "Waiting for HPE-VME-Manager services to be in running state."
+
+    # TODO modify the wait time with right value
+    # Run the command 20 times with a 30-second delay (10 minutes)
+    for i in {1..20}
+    do
+        hv_log "Sleeping for 30 seconds before checking the status of services"
+        sleep 30
+
+        output=$(sudo morpheus-ctl status)
+
+        # Check if any line does not start with "run"
+        if echo "$output" | grep -qvE "^run"; then
+            if [[ $i -eq 20 ]]; then
+                hpe_vme_manager_update_status_log "Some of the services of HPE-VME-Manager services are still not in running state"
+                hv_log_error "Some of the services of HPE-VME-Manager services are still not in running state: $output"
+            fi
+        else
+            hpe_vme_manager_update_status_log "All the services of HPE-VME-Manager services are in running state."
+            hv_log "All HPE-VME-Manager services are in running state"
+            break
+        fi
+    done
+
+    # If all attempts passed, succeed
+    hpe_vme_manager_update_status_log "HPE-VME-Manager package upgrade completed successfully"
+    hv_log "HPE-VME-Manager package upgrade complete"  # Send message to stdout
+
+	# Once upgrade is success, remove the
+	rm -rf "$RECONFIGURE_DONE_FILE"
+}
+
+package_update() {
+
+  log_rotate
+
+  # Check if the directory exists
+  if [ ! -d "$BASE_PATH" ]; then
+    hv_log_error "Directory $BASE_PATH does not exist."
+  fi
+
+  # Check if the directory exists
+  # if [ ! -d "$DEB_DIR_DIST" ]; then
+  #   hv_log_error "Directory $DEB_DIR_DIST does not exist."
+  # fi
+
+  # disable auto update from external sources
+  rm -rf /etc/apt/sources.list.d/* > /dev/null 2>&1
+  echo "" | tee /etc/apt/sources.list > /dev/null 2>&1
+
+  #hpe_vme_manager_update_status_log "Updating HPE VME Manager distribution packages"
+  # Install the .deb file using dpkg
+  # Adding DEBIAN_FRONTEND=noninteractive to avoid the below error when executed remotely
+  # debconf: unable to initialize frontend: Dialog
+  # sudo DEBIAN_FRONTEND=noninteractive dpkg -i "$DEB_DIR_DIST"/*.deb
+  # Check if the installation was successful
+  # if [ $? -eq 0 ]; then
+  #     hv_log "Updated successfully debian packages from $DEB_DIR_DIST directory"
+  #     hpe_vme_manager_update_status_log "HPE VME Manager distribution packages updated successfully"
+  # else
+  #    hpe_vme_manager_update_status_log "HPE VME Manager distribution package update failed for one or more packages from $DEB_DIR_DIST directory"
+  #    hv_log_error "Failed to update one or more debian packages from $DEB_DIR_DIST directory"
+  # fi
+
+  if [ ! -f "$RECONFIGURE_DONE_FILE" ]; then
+	  # Installing essentials and supplement debian
+
+	  for DEB_FILE in "${DEB_FILES[@]}"; do
+		if [ -f $DEB_FILE ]; then
+			hv_log "Installing $DEB_FILE..."
+			hpe_vme_manager_update_status_log "Updating HPE VME Manager package: $DEB_FILE"
+
+			# Install the .deb file using dpkg
+			# Adding DEBIAN_FRONTEND=noninteractive to avoid the below error when executed remotely
+			  # debconf: unable to initialize frontend: Dialog
+			sudo DEBIAN_FRONTEND=noninteractive dpkg -i  $DEB_FILE
+
+			# Check if the installation was successful
+			if [ $? -eq 0 ]; then
+				hv_log "$DEB_FILE installed successfully."
+			else
+				hpe_vme_manager_update_status_log "HPE VME Manager hpe-vme-essentials packages update failed"
+				hv_log_error "Failed to install $DEB_FILE."
+			fi
+		else
+		  hpe_vme_manager_update_status_log "HPE VME Manager hpe-vme-essentials packages update failed. Missing file $DEB_FILE"
+		  hv_log_error "File $DEB_FILE does not exist."
+		fi
+	  done
+
+    hpe_vme_manager_update_status_log "HPE-VME-Manager packages updated successfully"
+	# Once package installation is done, we need to reconfigure
+	morpheus_reconfigure
+  fi
+
+  hpe_vme_manager_update_status_log "Reconfigure already done, check the services status."
+  package_update_status || hv_log_error "Update package: Unable to verify status of the HPE-VME-Manager services"
+}
+
+hv_log()
+{
+    echo "$(date +'%Y-%m-%d %H:%M:%S.%4NZ')     [INFO] $1";
+}
+
+hpe_vme_manager_update_status_log()
+{
+    echo "$1" >> "$UPDATE_STATUS_LOG_FILE"
+}
+
+log_rotate()
+{
+    # Check if the status log file exists
+    if [ -f "$UPDATE_STATUS_LOG_FILE" ]; then
+        extension=$(sudo date --date=@"$(stat -c %W $UPDATE_STATUS_LOG_FILE)" +%Y-%m-%d-%H-%M-%S)
+        # Rotate the log file
+        sudo mv "$UPDATE_STATUS_LOG_FILE" "$UPDATE_STATUS_LOG_FILE.$extension"
+
+        # Check if there are more than 5 rotated log files and delete the oldest
+        log_files=($(ls -t "$UPDATE_STATUS_LOG_FILE".* 2>/dev/null))
+        if [ ${#log_files[@]} -gt 5 ]; then
+            for ((i=5; i<${#log_files[@]}; i++)); do
+                sudo rm -f "${log_files[$i]}"
+            done
+        fi
+    fi
+
+    # Check if the reconfigure log file exists
+    if [ -f "$RECONFIGURE_LOG_FILE" ]; then
+        extension=$(sudo date --date=@"$(stat -c %W $RECONFIGURE_LOG_FILE)" +%Y-%m-%d-%H-%M-%S)
+        # Rotate the log file
+        sudo mv "$RECONFIGURE_LOG_FILE" "$RECONFIGURE_LOG_FILE.$extension"
+
+        # Check if there are more than 5 rotated log files and delete the oldest
+        log_files=($(ls -t "$RECONFIGURE_LOG_FILE".* 2>/dev/null))
+        if [ ${#log_files[@]} -gt 5 ]; then
+            for ((i=5; i<${#log_files[@]}; i++)); do
+                sudo rm -f "${log_files[$i]}"
+            done
+        fi
+    fi
+}
+
+hv_log_error()
+{
+    echo "$(date +'%Y-%m-%d %H:%M:%S.%4NZ')     [ERROR] $1";
+    [ -z "$2" ] && exitcode=1 || exitcode="$2"
+    >&2 echo "$1"
+    exit "$exitcode"
+}
+
+hv_log_warn()
+{
+    echo "$(date +'%Y-%m-%d %H:%M:%S.%4NZ')     [WARN] $1";
+}
+
+package_update
 EOFSCRIBE
   dateCreated = "2025-06-24T11:20:57.000Z"
-  lastUpdated = "2025-06-25T04:59:39.000Z"
+  lastUpdated = "2025-07-04T07:09:03.000Z"
 }

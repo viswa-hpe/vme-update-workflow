@@ -8,11 +8,11 @@ resource "task" "update-all-hosts" {
   labels = [ "Update Cluster Hosts" ]
   lastUpdated = "2025-06-26T11:55:34.000Z"
   options = [
+    { optionType = { code = "shell.sudo" }, value = "on" },
     {
       content = { uuid = "91f966f4-f905-46b5-b66d-d737f96852dc" }
       optionType = { code = "script" }
-    },
-    { optionType = { code = "shell.sudo" }, value = "on" }
+    }
   ]
   taskType = { code = "script" }
 }
