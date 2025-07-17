@@ -1,0 +1,18 @@
+resource "task" "Update-Host-SPP" {
+  code = "Update-Host-SPP"
+  name = "Update-Host-SPP"
+  uuid = "65571723-8796-4d61-8244-4706ca52d60f"
+  allowCustomConfig = true
+  dateCreated = "2025-06-25T08:08:33.000Z"
+  executeTarget = "local"
+  labels = [ "Update-Host-SPP" ]
+  lastUpdated = "2025-06-26T16:05:29.000Z"
+  options = [
+    {
+      content = { uuid = "6367d121-adf9-4719-9686-644cbdfb21bd" }
+      optionType = { code = "script" }
+    },
+    { optionType = { code = "shell.sudo" }, value = "on" }
+  ]
+  taskType = { code = "script" }
+}
