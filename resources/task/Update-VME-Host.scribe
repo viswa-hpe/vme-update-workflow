@@ -1,0 +1,18 @@
+resource "task" "Update-VME-Host" {
+  code = "Update-VME-Host"
+  name = "Update-VME-Host"
+  uuid = "b64b7b11-b761-4c1e-b053-d121c5470c59"
+  allowCustomConfig = true
+  dateCreated = "2025-06-24T11:35:24.000Z"
+  executeTarget = "local"
+  labels = [ "Update-VME-Host" ]
+  lastUpdated = "2025-06-26T15:26:29.000Z"
+  options = [
+    {
+      content = { uuid = "dbc5974b-4dce-4f12-a5d0-6e7ae485082a" }
+      optionType = { code = "script" }
+    },
+    { optionType = { code = "shell.sudo" }, value = "on" }
+  ]
+  taskType = { code = "script" }
+}

@@ -1,0 +1,143 @@
+resource "file-content" "dbc5974b-4dce-4f12-a5d0-6e7ae485082a" {
+  uuid = "dbc5974b-4dce-4f12-a5d0-6e7ae485082a"
+  content = <<EOFSCRIBE
+#!/bin/sh
+ 
+node_ip=<%=customOptions.hostIP%>
+echo "$(date '+%Y-%m-%d %H:%M:%S') Updating HPE VME Node: $node_ip"
+
+USERNAME="hvadmin"
+STDERR_FILE="/tmp/stderr_${node_ip}"
+UPDATE_SCRIPT="/scratch/HPE-VME-Host-os-update-bundle/bin/hvnodeupdate.sh --baseos"
+UPDATE_SCRIPT_REBOOT="/scratch/HPE-VME-Host-os-update-bundle/bin/hvnodeupdate.sh --reboot"
+FENCE_CP="sudo /usr/bin/cp /usr/sbin/fence_scsi_hpevm /altroot/usr/sbin/fence_scsi_hpevm 2>/dev/null || true"
+UPDATE_SCRIPT_RECONFIGURE="/scratch/HPE-VME-Host-os-update-bundle/bin/hvnodeupdate.sh --reconfigure"
+key_file="/home/spectrumqa/.ssh/${node_ip}.priv"
+CLUSTER_INFO="/tmp/cluster-info.json"
+API_URL=<%=morpheus.applianceUrl%>
+AUTH_TOKEN=<%=morpheus.getApiAccessToken()%>
+RESPONSE_FILE="/tmp/server-response.json"
+ 
+ 
+# Extract to_version for the given node_ip
+echo "$(date '+%Y-%m-%d %H:%M:%S')  Fetching current version on the HPE VME Node"
+target_version=$(sudo ssh -q -n -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -c aes256-ctr -i "$key_file" $USERNAME@"$node_ip" grep '^DISTRIB_RELEASE=' /etc/HPE-VME-Host-release | cut -d'=' -f2)
+echo "$(date '+%Y-%m-%d %H:%M:%S')  Current version on the node: $target_version"
+ 
+to_version=$(jq -r --arg ip "$node_ip" '.node[0][] | select(.ip_address == $ip) | .to_version' "$CLUSTER_INFO")
+if [ -z "$to_version" ]; then
+  echo "Node with IP $node_ip not found in JSON."
+  exit 1
+fi
+ 
+# Compare versions
+echo "$(date '+%Y-%m-%d %H:%M:%S') Validating versions before updating"
+if [ "$(printf '%s\n' "$to_version" "$target_version" | sort -V | head -n1)" = "$to_version" ]; then
+  if [ "$to_version" = "$target_version" ]; then
+    echo "$(date '+%Y-%m-%d %H:%M:%S')  Expected version ($to_version) is equal to current version ($target_version). Skipping update of the HPE VME Node"
+    exit 0
+  else
+    echo "$(date '+%Y-%m-%d %H:%M:%S') Error: Expected verison ($to_version) is less than current version ($target_version)."
+    exit 1
+  fi
+fi
+ 
+### Run update script via SSH to update base OS
+echo "$(date '+%Y-%m-%d %H:%M:%S') Valid version for update. Attempting to update the HPE VME Node"
+set -e
+sudo ssh -n -q -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -c aes256-ctr -i "$key_file" $USERNAME@"$node_ip" "$UPDATE_SCRIPT" 2> $STDERR_FILE
+ 
+### Check for errors
+if [ -s "$STDERR_FILE" ]; then
+  echo "$(date '+%Y-%m-%d %H:%M:%S') Error occurred:"
+  cat "$STDERR_FILE"
+  exit 1
+fi
+
+
+echo "$(date '+%Y-%m-%d %H:%M:%S') Update complete. Rebooting the HPE VME Node and waiting for maximum of 20min for the boot up"
+
+### Run update script via SSH to reboot machine
+sudo ssh -n -q -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -c aes256-ctr -i "$key_file" $USERNAME@"$node_ip" "$UPDATE_SCRIPT_REBOOT" 2> $STDERR_FILE
+ 
+### Check for errors
+if [ -s "$STDERR_FILE" ]; then
+  echo "$(date '+%Y-%m-%d %H:%M:%S') Error occurred:"
+  cat "$STDERR_FILE"
+  exit 1
+fi
+ 
+
+### Sleep for 20 minutes
+total_minutes=20
+interval_minutes=2
+ 
+minutes_left=$total_minutes
+while [ $minutes_left -gt 0 ]; do
+  echo "$(date '+%Y-%m-%d %H:%M:%S') time remaining before validation: ${minutes_left}m"
+if sudo ssh -n -q -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -c aes256-ctr -i $key_file hvadmin@$node_ip ls >/dev/null 2>&1; then
+    echo "$(date '+%Y-%m-%d %H:%M:%S') SSH to $target_ip successful. Exiting the sleep"
+    break
+  fi
+  sleep $((interval_minutes * 60))
+  minutes_left=$((minutes_left - interval_minutes))
+done
+
+echo "$(date '+%Y-%m-%d %H:%M:%S') Sleeping for 2min before all morpheus services start"
+sleep 120
+ 
+### Reconfigure node
+echo "$(date '+%Y-%m-%d %H:%M:%S') Reboot complete. Attempting to reconfigure the HPE VME Node"
+sudo ssh -n -q -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -c aes256-ctr -i "$key_file" $USERNAME@"$node_ip" "$UPDATE_SCRIPT_RECONFIGURE" > /dev/null 2>&1
+ 
+### Get node id from cluster-info.json
+node_id=$(jq -r --arg ip "$node_ip" '.node[0][] | select(.ip_address == $ip) | .id' "$CLUSTER_INFO")
+if [ -z "$node_id" ]; then
+  echo "Node ID not found for IP $node_ip"
+  exit 1
+fi
+ 
+echo "$(date '+%Y-%m-%d %H:%M:%S') Checking the power status of the node: $node_ip(node is: $node_id)"
+ 
+#Fetch new token as the old one would have expired
+AUTH_TOKEN=<%=morpheus.getApiAccessToken()%>
+ 
+### Make the curl call and check power state
+curl -k --request GET --url "${API_URL}/api/servers/${node_id}" \
+  --header 'accept: application/json' \
+  -H "Authorization: BEARER $AUTH_TOKEN" \
+  --noproxy '*' \
+  -o /tmp/server-response.json 2>/tmp/curl_error.log
+ 
+if [ $? -ne 0 ] || [ ! -s /tmp/server-response.json ]; then
+  echo "$(date '+%Y-%m-%d %H:%M:%S') Error: Curl command failed or response is empty:"
+  cat /tmp/curl_error.log
+  exit 1
+fi
+ 
+if [ -f /tmp/curl_error.log ]; then
+  rm /tmp/curl_error.log
+fi
+ 
+power_state=$(jq -r '.server.powerState' "$RESPONSE_FILE")
+if [ "$power_state" = "off" ]; then
+  echo "$(date '+%Y-%m-%d %H:%M:%S') HPE VME Node power state is OFF. Exiting script."
+  exit 1
+fi
+ 
+echo "Validating the HPE VME version installed on the HPE VME Node"
+### Validate version
+targetVersion=$(sudo ssh -q -n -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -c aes256-ctr -i "$key_file" $USERNAME@"$node_ip" grep '^DISTRIB_RELEASE=' /etc/HPE-VME-Host-release | cut -d'=' -f2)
+ 
+if [ "$to_version" = "$targetVersion" ]; then
+  echo "$(date '+%Y-%m-%d %H:%M:%S') HPE VME Node updated to valid version"
+else
+  echo "$(date '+%Y-%m-%d %H:%M:%S') HPE VME Node version expected verison ($to_version) does not match installed version ($targetVersion)"
+  exit 1
+fi
+ 
+echo "$(date '+%Y-%m-%d %H:%M:%S') Update complete. HPE VME Node is on verison: $targetVersion"
+EOFSCRIBE
+  dateCreated = "2025-06-24T11:35:24.000Z"
+  lastUpdated = "2025-07-11T09:00:02.000Z"
+}
