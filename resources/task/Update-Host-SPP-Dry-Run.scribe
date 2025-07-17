@@ -1,0 +1,18 @@
+resource "task" "Update-Host-SPP-Dry-Run" {
+  code = "Update-Host-SPP-Dry-Run"
+  name = "Update-Host-SPP-Dry-Run"
+  uuid = "4de25a9a-a754-4856-ac01-9975cf24b23f"
+  allowCustomConfig = true
+  dateCreated = "2025-06-26T08:21:56.000Z"
+  executeTarget = "local"
+  labels = [ "Update-Host-SPP-Dry-Run" ]
+  lastUpdated = "2025-06-26T15:26:50.000Z"
+  options = [
+    {
+      content = { uuid = "40f52c13-97ad-47e4-9829-8d7742a4511d" }
+      optionType = { code = "script" }
+    },
+    { optionType = { code = "shell.sudo" }, value = "on" }
+  ]
+  taskType = { code = "script" }
+}

@@ -1,0 +1,74 @@
+resource "file-content" "40f52c13-97ad-47e4-9829-8d7742a4511d" {
+  uuid = "40f52c13-97ad-47e4-9829-8d7742a4511d"
+  content = <<EOFSCRIBE
+#!/bin/sh
+ 
+CLUSTER_INFO="/tmp/cluster-info.json"
+NODE_IP=<%=customOptions.hostIP%>
+#NODE_IP="172.30.1.179"
+ 
+OUTPUT_FILE="/tmp/spp_input/spp-input.txt"
+mkdir -p /tmp/spp_input
+touch $OUTPUT_FILE
+ 
+# Extract ilo details for the given node_ip
+ilo_ip=$(jq -r --arg ip "$NODE_IP" '.node[0] | to_entries[] | select(.value.ip_address == $ip) | .value.ilo_ip' "$CLUSTER_INFO")
+ilo_username=$(jq -r --arg ip "$NODE_IP" '.node[0] | to_entries[] | select(.value.ip_address == $ip) | .value.ilo_username' "$CLUSTER_INFO")
+ilo_password=$(jq -r --arg ip "$NODE_IP" '.node[0] | to_entries[] | select(.value.ip_address == $ip) | .value.ilo_password' "$CLUSTER_INFO")
+ 
+if [ -z "$ilo_ip" ] || [ -z "$ilo_username" ] || [ -z "$ilo_password" ] || [ "$ilo_ip" = "null" ]; then
+  echo "$(date '+%Y-%m-%d %H:%M:%S') Node with IP $NODE_IP not found or missing iLO details."
+  exit 1
+fi
+ 
+echo "$(date '+%Y-%m-%d %H:%M:%S') Deleting old SPP sum-logs contents"
+sudo rm -rf /tmp/spp/sum-logs/*
+ 
+cat > "$OUTPUT_FILE" <<EOF
+SILENT=YES
+IGNOREERRORS = ServerNotFound,BadPassword,FailedDependencies
+SKIPTARGET = NO
+SOURCEPATH = /tmp/spp/packages
+IGNOREWARNINGS=YES
+INSTALLED_REPORT=YES
+REBOOTALLOWED=YES
+LOGFILENAME = /tmp/spp/sum-logs/update/spp
+REPORTDIR = /tmp/spp/sum-logs/update/spp
+DEBUGLOGDIR= /tmp/spp/sum-logs/debug
+DRYRUN=YES
+IGNORETPM=YES
+[TARGETS]
+HOST=$ilo_ip
+TARGETTYPE=ilo
+UID=$ilo_username
+PWD=$ilo_password
+[END]
+EOF
+ 
+echo "$(date '+%Y-%m-%d %H:%M:%S') $OUTPUT_FILE created for node $NODE_IP"
+ 
+# Run the docker command and capture output
+output=$(sudo docker run --user root --memory=512m --cpus=1.5 --mount type=bind,source=/tmp/spp,target=/tmp/spp  --mount type=bind,source=/tmp/spp_input,target=/tmp/spp_input --rm --entrypoint sh pccp-spp-update-final:latest -c "/tmp/spp/packages/smartupdate --inputfile /tmp/spp_input/spp-input.txt" 2>&1)
+
+echo "============ Diplaying content of the smart array upgrade============\n"
+formatted_output=$(echo "$output" | sed 's/\. /\.\n/g')
+echo "$formatted_output"
+echo "\n====================================================================="
+
+SPP_UPGRADE_FLAG_FILE="/tmp/spp_upgrade_${NODE_IP}"
+# Check for the string in the output
+if echo "$output" | grep -q "Error"; then
+  echo "$(date '+%Y-%m-%d %H:%M:%S') Error while attempting DRY-RUN for the SPP upgrade"
+ else
+  echo "$(date '+%Y-%m-%d %H:%M:%S') SPP Dry-Run successful. Upgrade required"
+  sudo touch $SPP_UPGRADE_FLAG_FILE
+fi
+ 
+#sudo docker run --user root --memory=512m --cpus=1.5 --mount type=bind,source=/tmp/spp,target=/tmp/spp  --mount type=bind,source=/tmp/spp_input,target=/tmp/spp_input --rm --entrypoint sh pccp-spp-update-final:latest -c "/tmp/spp/packages/smartupdate --inputfile /tmp/spp_input/spp-input.txt" || true
+ 
+echo "$(date '+%Y-%m-%d %H:%M:%S') Stopping the container" 
+sudo docker ps --filter ancestor=pccp-spp-update-final --format "{{.ID}}" | xargs -r docker stop
+EOFSCRIBE
+  dateCreated = "2025-06-26T08:21:56.000Z"
+  lastUpdated = "2025-06-27T12:11:21.000Z"
+}
